@@ -65,3 +65,5 @@ POST /analyze-domain
 - API runs on port 8000 by default  
 - Frontend calls the API locally  
 - Use /docs to test endpoints directly  
+
+
