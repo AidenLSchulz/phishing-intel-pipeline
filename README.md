@@ -15,12 +15,6 @@ http://127.0.0.1:8000/docs
 
 What this project does
 
-This API analyzes domains and assigns a phishing risk score based on:
-
-Suspicious keywords (login, secure, verify, etc.)
-Domain length
-Use of hyphens
-
 # Phishing Domain Detection Pipeline
 
 This project is an automated system that analyzes suspicious domains, identifies phishing indicators, assigns a risk score, and stores results for reporting and review.
