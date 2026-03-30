@@ -1,43 +1,48 @@
-Phishing Domain Detection Pipeline
-Overview
+# Phishing Domain Detection Pipeline
 
+## Overview
 This project analyzes domains for phishing indicators and assigns a risk score based on suspicious patterns such as keywords, length, and structure.
 
-Features
-Analyze domain input
-Detect suspicious keywords (login, secure, verify, etc.)
-Score domain risk
-Return results via API
-Simple frontend for testing
-Project Structure
+## Features
+- Analyze domain input
+- Detect suspicious keywords
+- Score domain risk
+- Return results through the API
+- Simple frontend for testing
+
+## Project Structure
 phishing-intel-pipeline/
 ├── api/      # FastAPI backend
 ├── web/      # Frontend (HTML/CSS/JS)
 └── README.md
-Setup
-1. Clone repo
-git clone <your-repo-url>
-cd phishing-intel-pipeline
-2. Install dependencies
-cd api
-pip install fastapi uvicorn sqlalchemy psycopg2-binary python-dotenv
-3. Run API
-python -m uvicorn app.main:app --reload
 
-Open:
+## Setup
 
-http://127.0.0.1:8000/docs
-Frontend
+### 1. Clone the repo
+git clone <your-repo-url>  
+cd phishing-intel-pipeline  
 
-Open:
+### 2. Install dependencies
+cd api  
+pip install fastapi uvicorn sqlalchemy psycopg2-binary python-dotenv  
 
-web/index.html
-Example Request
+### 3. Run the API
+python -m uvicorn app.main:app --reload  
+
+Open in browser:  
+http://127.0.0.1:8000/docs  
+
+## Frontend
+Open web/index.html in your browser.
+
+## Example Request
 POST /analyze-domain
+
 {
   "domain": "paypal-secure-login-update.com"
 }
-Example Response
+
+## Example Response
 {
   "domain": "paypal-secure-login-update.com",
   "risk_score": 60,
@@ -48,13 +53,15 @@ Example Response
     "Contains hyphens"
   ]
 }
-Tech Stack
-Python
-FastAPI
-PostgreSQL (planned)
-VS Code
-GitHub
-Notes
-API runs on port 8000 by default
-Frontend calls the API locally
-Use /docs to test endpoints directly
+
+## Tech Stack
+- Python
+- FastAPI
+- PostgreSQL (planned)
+- VS Code
+- GitHub
+
+## Notes
+- API runs on port 8000 by default  
+- Frontend calls the API locally  
+- Use /docs to test endpoints directly  
