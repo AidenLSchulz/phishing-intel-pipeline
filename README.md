@@ -1,39 +1,60 @@
 Phishing Domain Detection Pipeline
-Setup Instructions
-1. Clone the repository
+Overview
+
+This project analyzes domains for phishing indicators and assigns a risk score based on suspicious patterns such as keywords, length, and structure.
+
+Features
+Analyze domain input
+Detect suspicious keywords (login, secure, verify, etc.)
+Score domain risk
+Return results via API
+Simple frontend for testing
+Project Structure
+phishing-intel-pipeline/
+├── api/      # FastAPI backend
+├── web/      # Frontend (HTML/CSS/JS)
+└── README.md
+Setup
+1. Clone repo
 git clone <your-repo-url>
 cd phishing-intel-pipeline
-2. Go into the API folder
+2. Install dependencies
 cd api
-3. Install dependencies
 pip install fastapi uvicorn sqlalchemy psycopg2-binary python-dotenv
-4. Run the server
+3. Run API
 python -m uvicorn app.main:app --reload
-5. Open in browser
+
+Open:
 
 http://127.0.0.1:8000/docs
+Frontend
 
-What this project does
+Open:
 
-# Phishing Domain Detection Pipeline
-
-This project is an automated system that analyzes suspicious domains, identifies phishing indicators, assigns a risk score, and stores results for reporting and review.
-
-## Initial Goals
-- Accept domain input
-- Run basic phishing checks
-- Score suspicious domains
-- Store results
-- Generate reports
-
-##Technology Stack
-
-Python – Primary programming language used to build the phishing detection pipeline and analysis logic.
-
-FastAPI – Framework used to create the backend API for submitting domains and retrieving analysis results.
-
-PostgreSQL – Database used to store submitted domains, analysis results, and calculated risk scores.
-
-Visual Studio Code (VS Code) – Development environment used to write and test the application.
-
-GitHub – Used for version control, backlog management, issue tracking, and team collaboration.
+web/index.html
+Example Request
+POST /analyze-domain
+{
+  "domain": "paypal-secure-login-update.com"
+}
+Example Response
+{
+  "domain": "paypal-secure-login-update.com",
+  "risk_score": 60,
+  "reasons": [
+    "Contains suspicious keyword: login",
+    "Contains suspicious keyword: secure",
+    "Contains suspicious keyword: update",
+    "Contains hyphens"
+  ]
+}
+Tech Stack
+Python
+FastAPI
+PostgreSQL (planned)
+VS Code
+GitHub
+Notes
+API runs on port 8000 by default
+Frontend calls the API locally
+Use /docs to test endpoints directly
