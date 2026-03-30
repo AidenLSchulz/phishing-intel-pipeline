@@ -1,3 +1,26 @@
+Phishing Domain Detection Pipeline
+Setup Instructions
+1. Clone the repository
+git clone <your-repo-url>
+cd phishing-intel-pipeline
+2. Go into the API folder
+cd api
+3. Install dependencies
+pip install fastapi uvicorn sqlalchemy psycopg2-binary python-dotenv
+4. Run the server
+python -m uvicorn app.main:app --reload
+5. Open in browser
+
+http://127.0.0.1:8000/docs
+
+What this project does
+
+This API analyzes domains and assigns a phishing risk score based on:
+
+Suspicious keywords (login, secure, verify, etc.)
+Domain length
+Use of hyphens
+
 # Phishing Domain Detection Pipeline
 
 This project is an automated system that analyzes suspicious domains, identifies phishing indicators, assigns a risk score, and stores results for reporting and review.
