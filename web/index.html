@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Phishing Domain Detection</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div class="container">
+    <h1>Phishing Domain Detection</h1>
+    <p class="subtext">
+      Enter a domain below to analyze possible phishing indicators.
+    </p>
+
+    <div class="card">
+      <label for="domainInput">Domain</label>
+      <input
+        type="text"
+        id="domainInput"
+        placeholder="example: paypal-secure-login-update.com"
+      />
+      <button id="analyzeBtn">Analyze Domain</button>
+    </div>
+
+    <div class="card">
+      <h2>Results</h2>
+      <div id="result">
+        <p>No analysis yet.</p>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Quick Links</h2>
+      <p><a href="http://127.0.0.1:8000/docs" target="_blank">Open API Docs</a></p>
+      <p><a href="http://127.0.0.1:8000" target="_blank">Open API Root</a></p>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
