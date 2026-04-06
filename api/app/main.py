@@ -12,6 +12,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+#sus indicators
 SUSPICIOUS_KEYWORDS = [
     "login", "secure", "verify", "account", "update", "bank", "paypal"
 ]
