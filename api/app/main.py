@@ -12,7 +12,6 @@ from difflib import SequenceMatcher
 from html import unescape
 from typing import Dict, List, Optional, Set, Tuple
 from urllib import error, parse, request as urllib_request
-
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
