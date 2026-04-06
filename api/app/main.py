@@ -27,6 +27,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+<<<<<<< HEAD
 # --------------------------- Tunable constants ---------------------------- #
 
 SUSPICIOUS_KEYWORDS = {
@@ -70,6 +71,11 @@ SUSPICIOUS_TLDS = {"top", "xyz", "click", "shop", "support", "gq", "work", "coun
 KNOWN_PHISHING_FEEDS = [
     "https://openphish.com/feed.txt",
     "https://urlhaus.abuse.ch/downloads/text/",
+=======
+#sus indicators
+SUSPICIOUS_KEYWORDS = [
+    "login", "secure", "verify", "account", "update", "bank", "paypal"
+>>>>>>> db634f9b203d9fafd28a36fce03585b2d4887cae
 ]
 KNOWN_PHISHING_CACHE_FILE = os.path.join(os.path.dirname(__file__), ".known_phishing_cache.json")
 KNOWN_PHISHING_CACHE_TTL_SECONDS = 60 * 60 * 6
