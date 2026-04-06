@@ -27,7 +27,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-<<<<<<< HEAD
 # --------------------------- Tunable constants ---------------------------- #
 
 SUSPICIOUS_KEYWORDS = {
@@ -71,11 +70,6 @@ SUSPICIOUS_TLDS = {"top", "xyz", "click", "shop", "support", "gq", "work", "coun
 KNOWN_PHISHING_FEEDS = [
     "https://openphish.com/feed.txt",
     "https://urlhaus.abuse.ch/downloads/text/",
-=======
-#sus indicators
-SUSPICIOUS_KEYWORDS = [
-    "login", "secure", "verify", "account", "update", "bank", "paypal"
->>>>>>> db634f9b203d9fafd28a36fce03585b2d4887cae
 ]
 KNOWN_PHISHING_CACHE_FILE = os.path.join(os.path.dirname(__file__), ".known_phishing_cache.json")
 KNOWN_PHISHING_CACHE_TTL_SECONDS = 60 * 60 * 6
@@ -289,22 +283,24 @@ def analyze_domain(request: DomainRequest):
     summary_reasons = unique_preserve_order(reasons)
     if is_legitimate and benign_reasons:
         summary_reasons.extend([f"Legitimacy signal: {item}" for item in unique_preserve_order(benign_reasons)[:5]])
-
-    if "xn--" in domain.lower():
+    # 1. Homograph Attack (Punycode)
+    # Attackers use 'xn--' to spoof visually similar characters (e.g., apple.com)
+    
+    if "xn--" in normalized_domain.lower():
         reasons.append("Threat: Homograph/Punycode pattern detected")
     
     sketchy_tlds = [".xyz", "top", ".click", ".support", ".cfd", ".live"]
-    if any(domain.lower().endswith(tld) for tld in sketchy_tlds):
+    if any(normalized_domain.lower().endswith(tld) for tld in sketchy_tlds):
         reasons.append("Threat: Suspicious/High-Risk TLD detected")
     
 
     protected_brands = ["amazon", "microsoft", "google", "paypal", "apple", "netflix"]
     for brand in protected_brands:
-        if brand in domain.lower() and not domain.lower().endswith(f"{brand}.com"):
+        if brand in normalized_domain.lower() and not normalized_domain.lower().endswith(f"{brand}.com"):
             reasons.append(f"Threat: Unauthorized Brand Impersonation ({brand})")
 
 
-    if domain.count('.') >= 3:
+    if normalized_domain.count('.') >= 3:
         reasons.append("Threat: Excessive subdomain nesting (Potential Proxy)") 
               
     return {
