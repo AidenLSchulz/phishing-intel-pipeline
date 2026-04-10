@@ -1,0 +1,3 @@
+# sample domains for local testing
+evil-login.xyz
+bad-paypal-login.com
