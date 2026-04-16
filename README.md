@@ -29,7 +29,7 @@ cd api
 pip install fastapi uvicorn sqlalchemy psycopg2-binary python-dotenv  
 
 ### 3. Run the API
-python -m uvicorn app.main:app --reload  
+python -m uvicorn api.app.main:app --reload 
 
 Open in browser:  
 http://127.0.0.1:8000/docs  
