@@ -1,5 +1,7 @@
 # Phishing Domain Detection Pipeline
 
+# For Information Regarding the ....
+
 ## Overview
 This project analyzes domains for phishing indicators and assigns a risk score based on suspicious patterns such as keywords, length, and structure.
 
@@ -67,3 +69,28 @@ POST /analyze-domain
 - Use /docs to test endpoints directly  
 
 
+## CLI Integration Testing (Before GUI Merge)
+
+## Additional Required Dependencies
+  - pip install requests beautifulsoup4 python-whois
+
+## Purpose
+  - This is a CLI testing program used to ensure all phishing indicators are functioning correctly before merging into the website GUI.
+
+## How to Run
+
+  - You must cd into the phishing-intel-pipeline\api\app directory inside of the phishing-intel-pipeline.
+
+## (This is an example — use your actual file path)
+  - Example: C:\Users\Cody\OneDrive - Mid-State Technical College\1 Secure Software Applications\Git-Repos\phishing-intel-pipeline-updated\phishing-intel-pipeline\api\app
+
+## Then run:
+  - python .\integration_test.py
+
+## What the Script Does
+  - Takes the test_url variable tests it against all implemented phishing indicators, applies a phishing score for each detection triggered, then determines whether the site is likely phishing based on total score
+
+## CLI Output Includes
+  - Which indicators were triggered
+  - The score value of each triggered detection
+  - Final phishing determination
