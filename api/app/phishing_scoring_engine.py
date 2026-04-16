@@ -322,13 +322,14 @@ class PhishingScoringEngine:
     # RISK BUCKETING
     # -----------------------------------------------------------------------
     def _determine_risk_level(self, final_score: int) -> str:
-        if final_score <= 200:
-            return "Legitimate / Low Risk"
-        if final_score <= 400:
-            return "Suspicious"
-        if final_score <= 600:
+        if final_score >= 200:
+            return "High Confidence Phishing"
+        elif final_score >= 100:
             return "Likely Phishing"
-        return "High Confidence Phishing"
+        elif final_score >= 40:
+            return "Suspicious"
+        else:
+            return "Legitimate / Low Risk"
 
     # -----------------------------------------------------------------------
     # SMALL URL HELPERS
