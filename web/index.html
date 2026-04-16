@@ -3,37 +3,72 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Phishing Domain Detection</title>
+  <title>Phishing Domain Analyzer</title>
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
-  <div class="container">
-    <h1>Phishing Domain Detection</h1>
-    <p class="subtext">
-      Enter a domain below to analyze possible phishing indicators.
-    </p>
+  <div class="page">
+    <div class="app-shell">
+      <div class="left-panel">
+        <div class="brand-block">
+          <p class="eyebrow">Security Tool</p>
+          <h1>Phishing Domain Analyzer</h1>
+          <p class="subtext">
+            Check a domain for phishing indicators and view a clean risk summary.
+          </p>
+        </div>
 
-    <div class="card">
-      <label for="domainInput">Domain</label>
-      <input
-        type="text"
-        id="domainInput"
-        placeholder="example: paypal-secure-login-update.com"
-      />
-      <button id="analyzeBtn">Analyze Domain</button>
-    </div>
+        <div class="input-card">
+          <label for="domainInput">Domain to analyze</label>
+          <input
+            type="text"
+            id="domainInput"
+            placeholder="example: paypal-secure-login-update.com"
+          />
+          <button id="analyzeBtn">Run Analysis</button>
+        </div>
 
-    <div class="card">
-      <h2>Results</h2>
-      <div id="result">
-        <p>No analysis yet.</p>
+        <div class="info-card">
+          <h2>How it works</h2>
+          <p>
+            The analyzer reviews the domain, assigns a risk score, maps that score
+            to a risk level, and lists the indicators that caused the domain to be flagged.
+          </p>
+        </div>
       </div>
-    </div>
 
-    <div class="card">
-      <h2>Quick Links</h2>
-      <p><a href="http://127.0.0.1:8000/docs" target="_blank">Open API Docs</a></p>
-      <p><a href="http://127.0.0.1:8000" target="_blank">Open API Root</a></p>
+      <div class="right-panel">
+        <div class="results-card">
+          <div class="results-header">
+            <div>
+              <p class="eyebrow">Results</p>
+              <h2>Analysis Output</h2>
+            </div>
+            <div class="status-chip">Ready</div>
+          </div>
+
+          <div id="result">
+            <div class="empty-state">
+              <p>No analysis yet.</p>
+              <span>Submit a domain to generate a risk summary.</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="links-card">
+          <h2>Quick Links</h2>
+          <div class="links-grid">
+            <a href="http://127.0.0.1:8000/docs" target="_blank" class="link-box">
+              <span class="link-title">API Docs</span>
+              <span class="link-desc">Swagger interface</span>
+            </a>
+            <a href="http://127.0.0.1:8000" target="_blank" class="link-box">
+              <span class="link-title">API Root</span>
+              <span class="link-desc">Backend root page</span>
+            </a>
+          </div>
+        </div>
+      </div>
     </div>
   </div>
 
