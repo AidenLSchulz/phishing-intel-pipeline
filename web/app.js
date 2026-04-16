@@ -1,46 +1,32 @@
-/*
-app.js
-
-PURPOSE:
-    Handles frontend interaction and sends requests to backend.
-
-FLOW OVERVIEW:
-    User enters domain
-        -> clicks "Analyze"
-        -> JS sends POST request to main.py
-        -> receives result
-        -> updates UI
-
-IMPORTANT:
-    - This ONLY talks to ONE endpoint: /analyze-domain
-    - Does NOT call helper modules directly
-*/
-
 const analyzeBtn = document.getElementById("analyzeBtn");
 const domainInput = document.getElementById("domainInput");
 const resultDiv = document.getElementById("result");
 
-// 🔧 Backend API location
 const API_BASE = "http://127.0.0.1:8000";
 
-// Attach click event
 analyzeBtn.addEventListener("click", analyzeDomain);
+domainInput.addEventListener("keypress", function (event) {
+  if (event.key === "Enter") {
+    analyzeDomain();
+  }
+});
 
 async function analyzeDomain() {
-  // STEP 1: Get user input
   const domain = domainInput.value.trim();
 
-  // Validate input
   if (!domain) {
-    resultDiv.innerHTML = "<p>Please enter a domain.</p>";
+    resultDiv.innerHTML = '<p class="error-message">Please enter a domain.</p>';
     return;
   }
 
-  // Show loading state
-  resultDiv.innerHTML = "<p>Analyzing...</p>";
+  resultDiv.innerHTML = `
+    <div class="empty-state">
+      <p>Running analysis...</p>
+      <span>Please wait while the domain is evaluated.</span>
+    </div>
+  `;
 
   try {
-    // STEP 2: Send request to backend (main.py)
     const response = await fetch(`${API_BASE}/analyze-domain`, {
       method: "POST",
       headers: {
@@ -49,44 +35,62 @@ async function analyzeDomain() {
       body: JSON.stringify({ domain })
     });
 
-    // Handle server errors
     if (!response.ok) {
       throw new Error(`Server responded with ${response.status}`);
     }
 
-    // STEP 3: Parse response
     const data = await response.json();
 
-    // Safely extract values
-    const riskScore = data.risk_score ?? 0;
-    const reasons = Array.isArray(data.reasons) ? data.reasons : [];
+    const scoreClass = getScoreClass(data.risk_score);
+    const riskLevel = getRiskLevel(data.risk_score);
+    const badgeClass = getBadgeClass(data.risk_score);
 
-    // Determine color/style based on score
-    const scoreClass = getScoreClass(riskScore);
+    const reasonsHtml = data.reasons && data.reasons.length
+      ? `<ul class="reasons-list">${data.reasons.map(reason => `<li>${reason}</li>`).join("")}</ul>`
+      : '<p class="safe-message">No suspicious indicators found. Domain appears safe.</p>';
 
-    // Build reasons list
-    const reasonsHtml = reasons.length
-      ? `<ul>${reasons.map(reason => `<li>${reason}</li>`).join("")}</ul>`
-      : "<p>No suspicious indicators found.</p>";
-
-    // STEP 4: Update UI
     resultDiv.innerHTML = `
-      <p><strong>Domain:</strong> ${data.domain}</p>
-      <p><strong>Risk Score:</strong> <span class="${scoreClass}">${riskScore}</span></p>
-      <h3>Reasons</h3>
-      ${reasonsHtml}
-    `;
+      <div class="result-box">
+        <div class="result-row">
+          <span class="result-label">Domain Analyzed:</span> ${data.domain}
+        </div>
 
+        <div class="result-row">
+          <span class="result-label">Risk Score:</span>
+          <span class="${scoreClass}">${data.risk_score}</span>
+        </div>
+
+        <div class="result-row">
+          <span class="result-label">Risk Level:</span>
+          <span class="risk-badge ${badgeClass}">${riskLevel}</span>
+        </div>
+
+        <div class="result-row">
+          <span class="result-label">Findings:</span>
+          ${reasonsHtml}
+        </div>
+      </div>
+    `;
   } catch (error) {
-    // Handle network / runtime errors
-    resultDiv.innerHTML = `<p style="color:red;">Error: ${error.message}</p>`;
-    console.error("Fetch error:", error);
+    resultDiv.innerHTML = `<p class="error-message">Error: ${error.message}</p>`;
+    console.error(error);
   }
 }
 
-// Helper function for styling score
 function getScoreClass(score) {
   if (score >= 40) return "score-high";
   if (score >= 20) return "score-medium";
   return "score-low";
+}
+
+function getRiskLevel(score) {
+  if (score >= 40) return "High";
+  if (score >= 20) return "Medium";
+  return "Low";
+}
+
+function getBadgeClass(score) {
+  if (score >= 40) return "badge-high";
+  if (score >= 20) return "badge-medium";
+  return "badge-low";
 }
