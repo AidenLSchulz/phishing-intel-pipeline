@@ -98,13 +98,8 @@ def analyze_domain(request: DomainRequest):
 
     # Check known phishing database
     analysis_context.update(
-        check_known_phishing_database(
-            test_url,
-            url_blacklist_file="known_bad_urls.txt",
-            domain_blacklist_file="known_bad_domains.txt",
-            json_cache_file=".known_phishing_cache.json",
-        )
-    )
+    check_known_phishing_database(test_url)
+)
 
     # WHOIS lookup (domain registration info)
     analysis_context.update(lookup_domain_info(test_url))
