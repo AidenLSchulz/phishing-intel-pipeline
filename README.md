@@ -1,6 +1,6 @@
 # Phishing Domain Detection Pipeline
 
-# For Information Regarding the ....
+# For Information Regarding how to run the integration_test.py please scroll to line 70 and on. 
 
 ## Overview
 This project analyzes domains for phishing indicators and assigns a risk score based on suspicious patterns such as keywords, length, and structure.
