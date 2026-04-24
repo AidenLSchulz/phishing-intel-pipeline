@@ -1,2 +1,0 @@
-# sample full URLs for local testing
-http://evil-login.xyz/secure
