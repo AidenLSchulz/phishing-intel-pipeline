@@ -2,214 +2,137 @@
 database_check.py
 
 Purpose:
-    Provide a simple, importable phishing-database lookup module that main.py
-    can call without needing to know how the lookup works internally.
+Check submitted URLs and domains against the OpenPhish phishing database.
 
-What this module currently supports:
-    1. Local exact-match URL blacklist files
-    2. Local exact-match domain blacklist files
-    3. Optional JSON cache file containing known phishing URLs/domains
+This module downloads the OpenPhish phishing feed and checks if a
+submitted URL or its domain exists in the feed.
 
-What this module does NOT currently do by itself:
-    - Download live PhishTank / URLhaus feeds automatically
-    - Query a remote threat-intel API
-
-If your team wants live feed support later, that code can be added here without
-changing the function that main.py calls.
-
-Main callable function:
-    check_known_phishing_database(url, url_blacklist_file=None,
-                                  domain_blacklist_file=None,
-                                  json_cache_file=None)
-
-Returned keys are designed to merge directly into analysis_context.
+Returned values are structured so they can merge directly into
+analysis_context in the phishing detection system.
 """
 
 from __future__ import annotations
 
-import json
-from pathlib import Path
-from typing import Dict, Optional, Set
+import time
+import requests
+from typing import Dict, Set
 from urllib.parse import urlparse
 
 
-# ---------------------------------------------------------------------------
-# HELPER FUNCTIONS
-# ---------------------------------------------------------------------------
+# openphish public phishing feed
+OPENPHISH_URL = "https://openphish.com/feed.txt"
 
-def _normalize_url(url: str) -> str:
-    """
-    Normalize a URL for matching.
 
-    Why this matters:
-        Blacklist matching is fragile if the incoming URL changes format.
-        For example, these are often intended to mean the same thing:
-            evil-login.xyz
-            http://evil-login.xyz
-            HTTP://EVIL-LOGIN.XYZ
+# cache so the feed is not downloaded every request
+openphishCache = {
+    "data": set(),
+    "lastUpdated": 0
+}
 
-    This helper gives us a consistent lower-case format and adds a scheme when
-    the caller did not include one.
-    """
+
+# normalize urls so comparisons are consistent
+def normalizeUrl(url: str) -> str:
     url = url.strip().lower()
+
+    # add scheme if not provided
     if "://" not in url:
         url = f"http://{url}"
+
     return url
 
 
-def _extract_domain(url: str) -> str:
-    """
-    Extract the network location / host portion of a URL.
+# extract the domain from a url
+def extractDomain(url: str) -> str:
+    parsed = urlparse(normalizeUrl(url))
 
-    Example:
-        https://evil-login.xyz/secure -> evil-login.xyz
-    """
-    parsed = urlparse(_normalize_url(url))
+    # remove port numbers if present
     return parsed.netloc.lower().split(":")[0]
 
 
-def _load_lines(filepath: Optional[str]) -> Set[str]:
-    """
-    Load line-based blacklist entries from a text file.
+# download the openphish feed
+# cache result for 5 minutes
+def loadOpenPhishFeed() -> Set[str]:
 
-    Supported file format:
-        - one domain or URL per line
-        - blank lines are ignored
-        - lines starting with # are ignored
+    global openphishCache
 
-    If the file does not exist, we return an empty set instead of failing.
-    This keeps main.py safe even if the blacklist files have not been created
-    yet.
-    """
-    if not filepath:
-        return set()
-
-    path = Path(filepath)
-    if not path.exists():
-        return set()
-
-    values: Set[str] = set()
-    for line in path.read_text(encoding="utf-8").splitlines():
-        entry = line.strip().lower()
-        if not entry or entry.startswith("#"):
-            continue
-        values.add(entry)
-    return values
-
-
-def _load_json_cache(filepath: Optional[str]) -> Dict[str, Set[str]]:
-    """
-    Load an optional JSON cache file.
-
-    Expected JSON shape:
-        {
-            "urls": ["http://bad.example/login", ...],
-            "domains": ["bad.example", ...]
-        }
-
-    If the file is missing or invalid, we safely return empty sets.
-    """
-    if not filepath:
-        return {"urls": set(), "domains": set()}
-
-    path = Path(filepath)
-    if not path.exists():
-        return {"urls": set(), "domains": set()}
+    # return cached data if still fresh
+    if time.time() - openphishCache["lastUpdated"] < 300:
+        return openphishCache["data"]
 
     try:
-        data = json.loads(path.read_text(encoding="utf-8"))
-        return {
-            "urls": {str(item).strip().lower() for item in data.get("urls", [])},
-            "domains": {str(item).strip().lower() for item in data.get("domains", [])},
-        }
+        response = requests.get(OPENPHISH_URL, timeout=10)
+
+        urls = set()
+
+        # each line is a phishing url
+        for line in response.text.splitlines():
+            entry = line.strip().lower()
+
+            if entry:
+                urls.add(entry)
+
+        # update cache
+        openphishCache["data"] = urls
+        openphishCache["lastUpdated"] = time.time()
+
+        return urls
+
+    # if request fails return previous cache
     except Exception:
-        return {"urls": set(), "domains": set()}
+        return openphishCache["data"]
 
 
-# ---------------------------------------------------------------------------
-# MAIN CALLABLE FUNCTION
-# ---------------------------------------------------------------------------
+# main function used by the system
+def check_known_phishing_database(url: str) -> Dict[str, object]:
 
-def check_known_phishing_database(
-    url: str,
-    url_blacklist_file: Optional[str] = None,
-    domain_blacklist_file: Optional[str] = None,
-    json_cache_file: Optional[str] = None,
-) -> Dict[str, object]:
-    """
-    Check whether a URL or its domain exists in a known phishing database.
+    try:
+        normalizedUrl = normalizeUrl(url)
+        domain = extractDomain(normalizedUrl)
 
-    This is intentionally simple and reliable so main.py can call it directly.
+        openphishData = loadOpenPhishFeed()
 
-    Parameters:
-        url:
-            The URL to check.
-        url_blacklist_file:
-            Optional text file containing full URLs to block.
-        domain_blacklist_file:
-            Optional text file containing domains to block.
-        json_cache_file:
-            Optional JSON cache file with "urls" and/or "domains" arrays.
+        # check exact url match
+        if normalizedUrl in openphishData:
+            return {
+                "found_in_known_phishing_database": True,
+                "openphish_checked": True,
+                "openphish_match_type": "url",
+                "openphish_match_value": normalizedUrl,
+                "openphish_error": None
+            }
 
-    Returns:
-        A dictionary suitable for merging into analysis_context.
-    """
-    normalized_url = _normalize_url(url)
-    domain = _extract_domain(normalized_url)
+        # check domain match
+        for entry in openphishData:
+            try:
+                entryDomain = urlparse(entry).netloc.lower()
 
-    # Load all local sources.
-    url_blacklist = { _normalize_url(item) for item in _load_lines(url_blacklist_file) }
-    domain_blacklist = { item.strip().lower() for item in _load_lines(domain_blacklist_file) }
-    json_cache = _load_json_cache(json_cache_file)
+                if domain == entryDomain:
+                    return {
+                        "found_in_known_phishing_database": True,
+                        "openphish_checked": True,
+                        "openphish_match_type": "domain",
+                        "openphish_match_value": domain,
+                        "openphish_error": None
+                    }
 
-    # Merge file-based and JSON-based sources into one lookup set.
-    known_urls = set(url_blacklist) | { _normalize_url(item) for item in json_cache["urls"] }
-    known_domains = set(domain_blacklist) | { item.strip().lower() for item in json_cache["domains"] }
+            except Exception:
+                continue
 
-    # 1. Exact URL match.
-    if normalized_url in known_urls:
+        # no match found
         return {
-            "found_in_known_phishing_database": True,
-            "database_match_type": "url",
-            "database_match_value": normalized_url,
-            "database_lookup_success": True,
-            "database_error": None,
+            "found_in_known_phishing_database": False,
+            "openphish_checked": True,
+            "openphish_match_type": None,
+            "openphish_match_value": None,
+            "openphish_error": None
         }
 
-    # 2. Exact domain match.
-    if domain in known_domains:
+    # catch errors so system does not crash
+    except Exception as e:
         return {
-            "found_in_known_phishing_database": True,
-            "database_match_type": "domain",
-            "database_match_value": domain,
-            "database_lookup_success": True,
-            "database_error": None,
+            "found_in_known_phishing_database": False,
+            "openphish_checked": True,
+            "openphish_match_type": None,
+            "openphish_match_value": None,
+            "openphish_error": str(e)
         }
-
-    # 3. No match.
-    return {
-        "found_in_known_phishing_database": False,
-        "database_match_type": None,
-        "database_match_value": None,
-        "database_lookup_success": True,
-        "database_error": None,
-    }
-
-
-# ---------------------------------------------------------------------------
-# EASY STANDALONE TESTING
-# ---------------------------------------------------------------------------
-if __name__ == "__main__":
-    """
-    Easy local test:
-        1. Create known_bad_domains.txt with a line like: evil-login.xyz
-        2. Create known_bad_urls.txt with a line like: http://evil-login.xyz/secure
-        3. Run: python database_check.py
-    """
-    result = check_known_phishing_database(
-        url="http://evil-login.xyz/secure",
-        url_blacklist_file="known_bad_urls.txt",
-        domain_blacklist_file="known_bad_domains.txt",
-        json_cache_file=".known_phishing_cache.json",
-    )
-    print(result)
