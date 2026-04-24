@@ -138,5 +138,6 @@ def analyze_domain(request: DomainRequest):
     "reasons": [
         indicator.get("explanation", indicator.get("name", "Unknown indicator"))
         for indicator in result_dict.get("triggered_indicators", [])
-    ]
+    ],
+    "notes": result_dict.get("notes", []),
 }
