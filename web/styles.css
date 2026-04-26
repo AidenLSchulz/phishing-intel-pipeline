@@ -301,4 +301,13 @@ button:hover {
   h1 {
     font-size: 32px;
   }
+  .score-likely {
+  color: #c2410c;
+  font-weight: 700;
+}
+
+.badge-likely {
+  background: #ffedd5;
+  color: #c2410c;
+}
 }

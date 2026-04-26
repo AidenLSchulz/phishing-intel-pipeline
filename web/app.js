@@ -5,6 +5,7 @@ const resultDiv = document.getElementById("result");
 const API_BASE = "http://127.0.0.1:8000";
 
 analyzeBtn.addEventListener("click", analyzeDomain);
+
 domainInput.addEventListener("keypress", function (event) {
   if (event.key === "Enter") {
     analyzeDomain();
@@ -41,13 +42,14 @@ async function analyzeDomain() {
 
     const data = await response.json();
 
-    const scoreClass = getScoreClass(data.risk_score);
-    const riskLevel = getRiskLevel(data.risk_score);
-    const badgeClass = getBadgeClass(data.risk_score);
+    const score = data.risk_score;
+    const scoreClass = getScoreClass(score);
+    const riskLevel = data.risk_level || getRiskLevel(score);
+    const badgeClass = getBadgeClass(score);
 
-    const reasonsHtml = data.reasons && data.reasons.length
-      ? `<ul class="reasons-list">${data.reasons.map(reason => `<li>${reason}</li>`).join("")}</ul>`
-      : '<p class="safe-message">No suspicious indicators found. Domain appears safe.</p>';
+    const notesHtml = data.notes && data.notes.length
+      ? `<ul class="reasons-list">${data.notes.map(note => `<li>${note}</li>`).join("")}</ul>`
+      : '<p class="safe-message">Helper scores were collected successfully.</p>';
 
     resultDiv.innerHTML = `
       <div class="result-box">
@@ -57,7 +59,7 @@ async function analyzeDomain() {
 
         <div class="result-row">
           <span class="result-label">Risk Score:</span>
-          <span class="${scoreClass}">${data.risk_score}</span>
+          <span class="${scoreClass}">${score} / 1000</span>
         </div>
 
         <div class="result-row">
@@ -67,7 +69,7 @@ async function analyzeDomain() {
 
         <div class="result-row">
           <span class="result-label">Findings:</span>
-          ${reasonsHtml}
+          ${notesHtml}
         </div>
       </div>
     `;
@@ -78,19 +80,22 @@ async function analyzeDomain() {
 }
 
 function getScoreClass(score) {
-  if (score >= 40) return "score-high";
-  if (score >= 20) return "score-medium";
+  if (score >= 750) return "score-high";
+  if (score >= 500) return "score-likely";
+  if (score >= 250) return "score-medium";
   return "score-low";
 }
 
 function getRiskLevel(score) {
-  if (score >= 40) return "High";
-  if (score >= 20) return "Medium";
-  return "Low";
+  if (score >= 750) return "High Risk";
+  if (score >= 500) return "Likely Phishing";
+  if (score >= 250) return "Suspicious";
+  return "Safe";
 }
 
 function getBadgeClass(score) {
-  if (score >= 40) return "badge-high";
-  if (score >= 20) return "badge-medium";
+  if (score >= 750) return "badge-high";
+  if (score >= 500) return "badge-likely";
+  if (score >= 250) return "badge-medium";
   return "badge-low";
 }
