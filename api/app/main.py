@@ -15,8 +15,10 @@ This version:
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
+from datetime import datetime
 
 # Helper modules
+from .result_repository import save_result, domain_exists, normalize_domain
 from .database_check import check_known_phishing_database
 from .html_analyzer import analyze_html_content
 from .ssl_check import inspect_ssl_certificate
@@ -158,6 +160,31 @@ def analyze_domain(request: DomainRequest):
 
     # Convert score to final risk label
     risk_level = get_risk_level(total_score)
+
+    # ----------------------------------------------------
+    # Save result + prevent duplicates
+    # ----------------------------------------------------
+
+    domain = normalize_domain(submitted_domain)
+
+    if domain_exists(domain):
+        notes.append("Domain already analyzed previously. Skipping save.")
+    else:
+        result = {
+            "domain": domain,
+            "final_score": total_score,
+            "risk_level": risk_level,
+            "indicators": [],  # can improve later
+            "raw_results": {
+                "database_check": database_result,
+                "ssl_check": ssl_result,
+                "whois_check": whois_result,
+                "html_analyzer": html_result
+            },
+            "timestamp": datetime.utcnow().isoformat()
+        }
+
+        save_result(result)
 
     # ----------------------------------------------------
     # Return final result to frontend

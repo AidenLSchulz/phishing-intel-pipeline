@@ -1,0 +1,53 @@
+[
+  {
+    "domain": "google.com",
+    "final_score": 0,
+    "risk_level": "Safe",
+    "indicators": [],
+    "raw_results": {
+      "database_check": {
+        "found_in_known_phishing_database": false,
+        "openphish_checked": true,
+        "openphish_match_type": null,
+        "openphish_match_value": null,
+        "openphish_error": null
+      },
+      "ssl_check": {
+        "ssl_certificate_valid": true,
+        "ssl_certificate_mismatch": false,
+        "recently_issued_ssl_certificate": true,
+        "ssl_lookup_success": true,
+        "ssl_error": null,
+        "ssl_issue_age_days": 27
+      },
+      "whois_check": {
+        "domain": "google.com",
+        "domain_age_days": 10450,
+        "domain_age_risk": "low",
+        "registrar_name": "MarkMonitor, Inc.",
+        "whois_privacy_enabled": false,
+        "whois_lookup_success": true,
+        "whois_error": null
+      },
+      "html_analyzer": {
+        "login_form_present": false,
+        "external_form_submission": false,
+        "credential_harvesting_language": true,
+        "brand_impersonation": true,
+        "urgent_threatening_language": false,
+        "financial_request_language": false,
+        "unexpected_login_prompt": false,
+        "javascript_obfuscation": false,
+        "hidden_iframe": false,
+        "external_resource_loading": false,
+        "excessive_permission_requests": false,
+        "favicon_loaded_from_external_domain": false,
+        "no_contact_or_privacy_policy": true,
+        "inconsistent_branding_or_design": false,
+        "html_analysis_success": true,
+        "html_error": null
+      }
+    },
+    "timestamp": "2026-04-26T16:28:25.265771"
+  }
+]
