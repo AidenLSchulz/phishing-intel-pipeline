@@ -101,7 +101,7 @@ def analyze_domain(request: DomainRequest):
     test_url = submitted_domain
 
     if not test_url.startswith("http://") and not test_url.startswith("https://"):
-        test_url = "http://" + test_url
+        test_url = "https://" + test_url
 
     notes = []
 
