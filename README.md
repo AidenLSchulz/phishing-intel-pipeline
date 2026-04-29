@@ -66,31 +66,15 @@ POST /analyze-domain
 ## Notes
 - API runs on port 8000 by default  
 - Frontend calls the API locally  
-- Use /docs to test endpoints directly  
+- Use /docs to test endpoints directly
+
+## Automation Usage
+- Start the API:
+- python -m uvicorn api.app.main:app --reload
+- Run the automation runner (generates and scans domains):
+- python -m api.app.automation_runner
+- Open the frontend (web/index.html)
+- Click "Load Summary" to view results
 
 
-## CLI Integration Testing (Before GUI Merge)
 
-## Additional Required Dependencies
-  - pip install requests beautifulsoup4 python-whois
-
-## Purpose
-  - This is a CLI testing program used to ensure all phishing indicators are functioning correctly before merging into the website GUI.
-
-## How to Run
-
-  - You must cd into the phishing-intel-pipeline\api\app directory inside of the phishing-intel-pipeline.
-
-## (This is an example — use your actual file path)
-  - Example: C:\Users\Cody\OneDrive - Mid-State Technical College\1 Secure Software Applications\Git-Repos\phishing-intel-pipeline-updated\phishing-intel-pipeline\api\app
-
-## Then run:
-  - python .\integration_test.py
-
-## What the Script Does
-  - Takes the test_url variable tests it against all implemented phishing indicators, applies a phishing score for each detection triggered, then determines whether the site is likely phishing based on total score
-
-## CLI Output Includes
-  - Which indicators were triggered
-  - The score value of each triggered detection
-  - Final phishing determination
