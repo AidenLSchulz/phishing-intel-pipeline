@@ -180,6 +180,7 @@ def lookup_domain_info(url: str) -> Dict[str, object]:
                 "python-whois is not installed. "
                 "Install it with: pip install python-whois"
             ),
+            "score": 0
         }
 
     try:
@@ -198,6 +199,27 @@ def lookup_domain_info(url: str) -> Dict[str, object]:
         registrar_name = getattr(record, "registrar", None)
         whois_privacy_enabled = _detect_whois_privacy(record)
 
+        # -----------------------------------------------------------
+        # SCORING (MAX 125)
+        # -----------------------------------------------------------
+
+        score = 0
+
+        # Indicator 1: Very new domain (HIGH RISK)
+        if domain_age_risk == "high":
+            score += 75
+
+        # Indicator 2: Moderately new domain
+        elif domain_age_risk == "moderate":
+            score += 40
+
+        # Indicator 3: WHOIS privacy enabled
+        if whois_privacy_enabled is True:
+            score += 50
+
+        # Cap score at 125
+        score = min(score, 125)
+
         # STEP 6: Return structured WHOIS data
         return {
             "domain": domain,
@@ -207,6 +229,7 @@ def lookup_domain_info(url: str) -> Dict[str, object]:
             "whois_privacy_enabled": whois_privacy_enabled,
             "whois_lookup_success": True,
             "whois_error": None,
+            "score": score
         }
 
     except Exception as exc:
@@ -219,6 +242,7 @@ def lookup_domain_info(url: str) -> Dict[str, object]:
             "whois_privacy_enabled": None,
             "whois_lookup_success": False,
             "whois_error": str(exc),
+            "score": 0
         }
 
 

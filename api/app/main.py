@@ -17,8 +17,11 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from datetime import datetime
 
+import sqlite3
+import os
+
 # Helper modules
-from .result_repository import save_result, domain_exists, normalize_domain
+from .result_repository import save_result, domain_exists, normalize_domain, initialize_database
 from .database_check import check_known_phishing_database
 from .html_analyzer import analyze_html_content
 from .ssl_check import inspect_ssl_certificate
@@ -26,6 +29,7 @@ from .whois_lookup import lookup_domain_info
 
 
 app = FastAPI()
+initialize_database()
 
 # Allows the frontend to communicate with this backend
 app.add_middleware(
@@ -44,10 +48,62 @@ app.add_middleware(
 class DomainRequest(BaseModel):
     domain: str
 
-
 @app.get("/")
 def root():
     return {"message": "API is running"}
+
+
+@app.get("/results-summary")
+def results_summary():
+    db_file = os.path.join(os.path.dirname(__file__), "analysis_results.db")
+
+    if not os.path.exists(db_file):
+        return {
+            "total_scans": 0,
+            "risk_breakdown": [],
+            "latest_scans": [],
+            "message": "Database not found yet."
+        }
+
+    # UPDATED: use context manager for safe connection handling
+    with sqlite3.connect(db_file) as conn:
+        cursor = conn.cursor()
+
+        cursor.execute("SELECT COUNT(*) FROM analysis_results")
+        total_scans = cursor.fetchone()[0]
+
+        cursor.execute("""
+            SELECT risk_level, COUNT(*)
+            FROM analysis_results
+            GROUP BY risk_level
+            ORDER BY COUNT(*) DESC
+        """)
+        risk_breakdown = [
+            {"risk_level": row[0], "count": row[1]}
+            for row in cursor.fetchall()
+        ]
+
+        cursor.execute("""
+            SELECT domain, final_score, risk_level, timestamp
+            FROM analysis_results
+            ORDER BY id DESC
+            LIMIT 10
+        """)
+        latest_scans = [
+            {
+                "domain": row[0],
+                "final_score": row[1],
+                "risk_level": row[2],
+                "timestamp": row[3]
+            }
+            for row in cursor.fetchall()
+        ]
+
+    return {
+        "total_scans": total_scans,
+        "risk_breakdown": risk_breakdown,
+        "latest_scans": latest_scans
+    }
 
 
 # Final scoring model:

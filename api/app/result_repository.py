@@ -1,48 +1,108 @@
 import json
 import os
+import sqlite3
 from datetime import datetime
 
-# Path to results file
-DATA_FILE = os.path.join(os.path.dirname(__file__), "analysis_results.json")
+# SQLite database file
+DB_FILE = os.path.join(os.path.dirname(__file__), "analysis_results.db")
 
 
-def _load_data():
-    # Load existing results, or return empty list if file doesn't exist
-    if not os.path.exists(DATA_FILE):
-        return []
-
-    with open(DATA_FILE, "r") as f:
-        return json.load(f)
+def get_connection():
+    return sqlite3.connect(DB_FILE)
 
 
-def _save_data(data):
-    # Save updated results back to file
-    with open(DATA_FILE, "w") as f:
-        json.dump(data, f, indent=2)
+def initialize_database():
+    """
+    Creates the analysis_results table if it does not already exist.
+    The domain column is UNIQUE, which prevents duplicate stored results.
+    """
+
+    with get_connection() as conn:
+        cursor = conn.cursor()
+
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS analysis_results (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                domain TEXT NOT NULL UNIQUE,
+                final_score INTEGER NOT NULL,
+                risk_level TEXT NOT NULL,
+                indicators TEXT,
+                raw_results TEXT,
+                timestamp TEXT NOT NULL
+            )
+        """)
+
+        conn.commit()
 
 
 def normalize_domain(domain: str) -> str:
-    # Standardize domain format (prevents duplicates)
+    """
+    Standardizes domain format before checking or saving.
+    """
+
     return domain.lower().strip()
 
 
 def domain_exists(domain: str) -> bool:
-    # Check if domain already exists in stored results
-    domain = normalize_domain(domain)
-    data = _load_data()
+    """
+    Checks whether a domain already exists in the database.
+    """
 
-    return any(entry["domain"] == domain for entry in data)
+    initialize_database()
+
+    domain = normalize_domain(domain)
+
+    with get_connection() as conn:
+        cursor = conn.cursor()
+
+        cursor.execute(
+            "SELECT 1 FROM analysis_results WHERE domain = ? LIMIT 1",
+            (domain,)
+        )
+
+        return cursor.fetchone() is not None
 
 
 def save_result(result: dict) -> bool:
-    data = _load_data()
+    """
+    Saves a new analysis result.
 
-    # Prevent duplicate entries
-    if domain_exists(result["domain"]):
+    Returns:
+        True if saved
+        False if duplicate and skipped
+    """
+
+    initialize_database()
+
+    domain = normalize_domain(result["domain"])
+
+    try:
+        with get_connection() as conn:
+            cursor = conn.cursor()
+
+            cursor.execute("""
+                INSERT INTO analysis_results (
+                    domain,
+                    final_score,
+                    risk_level,
+                    indicators,
+                    raw_results,
+                    timestamp
+                )
+                VALUES (?, ?, ?, ?, ?, ?)
+            """, (
+                domain,
+                result.get("final_score", 0),
+                result.get("risk_level", "Safe"),
+                json.dumps(result.get("indicators", [])),
+                json.dumps(result.get("raw_results", {})),
+                result.get("timestamp", datetime.utcnow().isoformat())
+            ))
+
+            conn.commit()
+
+        return True
+
+    except sqlite3.IntegrityError:
+        # Duplicate domain was blocked by UNIQUE constraint
         return False
-
-    # Save new result
-    data.append(result)
-    _save_data(data)
-
-    return True

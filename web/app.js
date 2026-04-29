@@ -1,10 +1,13 @@
 const analyzeBtn = document.getElementById("analyzeBtn");
 const domainInput = document.getElementById("domainInput");
 const resultDiv = document.getElementById("result");
+const loadSummaryBtn = document.getElementById("loadSummaryBtn");
+const summaryResultDiv = document.getElementById("summaryResult");
 
 const API_BASE = "http://127.0.0.1:8000";
 
 analyzeBtn.addEventListener("click", analyzeDomain);
+loadSummaryBtn.addEventListener("click", loadResultsSummary);
 
 domainInput.addEventListener("keypress", function (event) {
   if (event.key === "Enter") {
@@ -75,6 +78,82 @@ async function analyzeDomain() {
     `;
   } catch (error) {
     resultDiv.innerHTML = `<p class="error-message">Error: ${error.message}</p>`;
+    console.error(error);
+  }
+}
+
+// ✅ NEW
+async function loadResultsSummary() {
+  summaryResultDiv.innerHTML = `
+    <div class="empty-state">
+      <p>Loading summary...</p>
+      <span>Reading saved scan results from the database.</span>
+    </div>
+  `;
+
+  try {
+    const response = await fetch(`${API_BASE}/results-summary`);
+
+    if (!response.ok) {
+      throw new Error(`Server responded with ${response.status}`);
+    }
+
+    const data = await response.json();
+
+    const riskBreakdownHtml = data.risk_breakdown.length
+      ? data.risk_breakdown.map(item => `
+          <li>${item.risk_level}: ${item.count}</li>
+        `).join("")
+      : "<li>No risk breakdown available.</li>";
+
+    const latestScansHtml = data.latest_scans.length
+      ? data.latest_scans.map(scan => `
+          <tr>
+            <td>${scan.domain}</td>
+            <td>${scan.final_score}</td>
+            <td>${scan.risk_level}</td>
+            <td>${scan.timestamp}</td>
+          </tr>
+        `).join("")
+      : `
+          <tr>
+            <td colspan="4">No scans found.</td>
+          </tr>
+        `;
+
+    summaryResultDiv.innerHTML = `
+      <div class="result-box">
+        <div class="result-row">
+          <span class="result-label">Total Saved Scans:</span> ${data.total_scans}
+        </div>
+
+        <div class="result-row">
+          <span class="result-label">Risk Breakdown:</span>
+          <ul class="reasons-list">
+            ${riskBreakdownHtml}
+          </ul>
+        </div>
+
+        <div class="result-row">
+          <span class="result-label">Latest 10 Scans:</span>
+          <table class="summary-table">
+            <thead>
+              <tr>
+                <th>Domain</th>
+                <th>Score</th>
+                <th>Risk</th>
+                <th>Timestamp</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${latestScansHtml}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    `;
+  } catch (error) {
+    summaryResultDiv.innerHTML = `<p class="error-message">Error: ${error.message}</p>`;
     console.error(error);
   }
 }
