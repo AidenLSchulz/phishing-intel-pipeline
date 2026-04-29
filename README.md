@@ -69,11 +69,11 @@ POST /analyze-domain
 - Use /docs to test endpoints directly
 
 ## Automation Usage
-- Start the API:
+Start the API:
 - python -m uvicorn api.app.main:app --reload
-- Run the automation runner (generates and scans domains):
+Run the automation runner (generates and scans domains):
 - python -m api.app.automation_runner
-- Open the frontend (web/index.html)
+Open the frontend (web/index.html)
 - Click "Load Summary" to view results
 
 
