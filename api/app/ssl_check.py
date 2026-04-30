@@ -243,6 +243,17 @@ def inspect_ssl_certificate(
 
     except Exception as exc:
 
+        # Ignore errors for domains that do not exist
+        if isinstance(exc, socket.gaierror):
+
+            return {
+                "score": 0,
+                "status": "skipped",
+                "reason": [
+                    "Domain could not be resolved."
+                ]
+            }
+
         return {
             "score": 200,
             "status": "error",
