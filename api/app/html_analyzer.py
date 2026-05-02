@@ -1,136 +1,92 @@
-"""
-html_analyzer.py
-
-Purpose:
-    Analyze HTML/content-based phishing indicators.
-"""
-
 from __future__ import annotations
 
 import re
-from typing import Dict, Optional
+from typing import Dict, Optional, Set
 from urllib.parse import urljoin, urlparse
 
 import requests
 from bs4 import BeautifulSoup
 
+# --- CONFIGURATION ---
 
+# List of highly trusted domains that should bypass phishing scoring[cite: 2]
+WHITELISTED_DOMAINS: Set[str] = {
+    "google.com", "microsoft.com", "apple.com", "amazon.com", 
+    "facebook.com", "github.com", "linkedin.com", "okta.com",
+    "live.com", "outlook.com", "gmail.com"
+}
+
+# Keywords specifically associated with credential theft[cite: 1]
 CREDENTIAL_KEYWORDS = {
     "verify your account",
     "confirm your password",
     "reset your password",
-    "sign in",
-    "login",
-    "log in",
     "confirm identity",
     "validate account",
 }
 
-URGENT_KEYWORDS = {
-    "urgent",
-    "immediately",
-    "act now",
-    "suspended",
-    "locked",
-    "expire",
-    "warning",
-}
-
-FINANCIAL_KEYWORDS = {
-    "payment",
-    "credit card",
-    "bank account",
-    "billing",
-    "invoice",
-    "financial",
-}
-
+# Known brands frequently targeted by impersonation attacks[cite: 1]
 KNOWN_BRANDS = {
-    "paypal",
-    "microsoft",
-    "google",
-    "apple",
-    "amazon",
-    "bank of america",
-    "chase",
-    "outlook",
-    "office365",
-    "facebook",
-    "instagram",
+    "paypal", "microsoft", "google", "apple", "amazon", 
+    "bank of america", "chase", "outlook", "office365", 
+    "facebook", "instagram", "youtube", "netflix", "linkedin", "gmail"
 }
 
-
+# Defines the impact of each indicator on the final risk score[cite: 1]
 HTML_SIGNAL_WEIGHTS = {
-    "external_form_submission": 120,
+    "external_form_submission": 60,
     "credential_harvesting_language": 90,
     "javascript_obfuscation": 80,
-    "hidden_iframe": 70,
+    "hidden_iframe": 10,
     "urgent_threatening_language": 60,
-    "financial_request_language": 50,
-    "brand_impersonation": 40,
-    "unexpected_login_prompt": 40,
-    "login_form_present": 20,
-    "favicon_loaded_from_external_domain": 15,
-    "excessive_permission_requests": 15,
-    "no_contact_or_privacy_policy": 10,
-    "external_resource_loading": 5,
+    "brand_impersonation": 70,
+    "login_form_present": 2, # Low weight: logins are common on safe sites[cite: 1]
 }
 
-
+# Documentation of reasoning for each indicator as required by Acceptance Criteria[cite: 1]
 HTML_SIGNAL_REASONING = {
     "external_form_submission": "Form submits data to a different domain, which may indicate credential theft.",
     "credential_harvesting_language": "Page uses account/password verification language commonly seen in phishing.",
     "javascript_obfuscation": "Page contains suspicious JavaScript functions often used to hide malicious behavior.",
     "hidden_iframe": "Hidden iframe may be used to load deceptive or malicious content.",
     "urgent_threatening_language": "Urgent wording may pressure users into acting quickly.",
-    "financial_request_language": "Financial wording may indicate attempts to steal payment or banking data.",
-    "brand_impersonation": "Page references a known brand, which may indicate impersonation.",
-    "unexpected_login_prompt": "Login prompt appears with other suspicious login-related language.",
-    "login_form_present": "Login forms are common, so this is a weak signal by itself.",
-    "favicon_loaded_from_external_domain": "External favicon may be suspicious, but can also be normal.",
-    "excessive_permission_requests": "Multiple permission-related terms may indicate suspicious user prompting.",
-    "no_contact_or_privacy_policy": "Missing contact/privacy language may reduce trust, but is weak alone.",
-    "external_resource_loading": "External resources are common on legitimate websites, so this has very low weight.",
+    "brand_impersonation": "Page references a known brand that does not match the domain owner.",
+    "login_form_present": "A login form was detected on the page.",
 }
 
+# --- UTILITY FUNCTIONS ---
 
 def _extract_domain(url: str) -> str:
+    """Gets the fully qualified domain name (FQDN) from a URL[cite: 1]."""
     parsed = urlparse(url if "://" in url else f"https://{url}")
     return parsed.netloc.lower().split(":")[0]
 
+def _get_base_domain(url: str) -> str:
+    """Extracts the registered domain (e.g., 'google.com') to ignore subdomains[cite: 2]."""
+    domain = _extract_domain(url)
+    parts = domain.split(".")
+    if len(parts) > 2:
+        return ".".join(parts[-2:])
+    return domain
 
-def _get_page_html(url: str, timeout: int = 10) -> Optional[str]:
-    """
-    Fetch page HTML.
+def _is_whitelisted(url: str) -> bool:
+    """Checks if the base domain is part of the trusted whitelist[cite: 2]."""
+    return _get_base_domain(url) in WHITELISTED_DOMAINS
 
-    Browser-like headers help reduce false 0 scores caused by sites blocking
-    simple Python requests.
-    """
-    try:
-        headers = {
-            "User-Agent": (
-                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-                "AppleWebKit/537.36 (KHTML, like Gecko) "
-                "Chrome/120.0.0.0 Safari/537.36"
-            )
-        }
-
-        resp = requests.get(
-            url,
-            timeout=timeout,
-            allow_redirects=True,
-            headers=headers,
-        )
-
-        resp.raise_for_status()
-        return resp.text
-
-    except Exception as e:
-        print(f"[HTML ERROR] Could not fetch HTML for {url}: {e}")
-        return None
-
+def _empty_indicator_result() -> Dict[str, bool]:
+    """Initializes all indicators to False[cite: 1]."""
+    return {
+        "login_form_present": False,
+        "external_form_submission": False,
+        "credential_harvesting_language": False,
+        "brand_impersonation": False,
+        "urgent_threatening_language": False,
+        "javascript_obfuscation": False,
+        "hidden_iframe": False,
+    }
 
 def _calculate_html_score(indicators: Dict[str, bool]) -> tuple[int, list[str], dict]:
+    """Sums weights of triggered indicators to produce a final risk score[cite: 1]."""
     score = 0
     reasons = []
     scoring_details = {}
@@ -138,238 +94,100 @@ def _calculate_html_score(indicators: Dict[str, bool]) -> tuple[int, list[str], 
     for signal, triggered in indicators.items():
         if triggered and signal in HTML_SIGNAL_WEIGHTS:
             weight = HTML_SIGNAL_WEIGHTS[signal]
-            reason = HTML_SIGNAL_REASONING[signal]
-
+            reason = HTML_SIGNAL_REASONING.get(signal, "Suspicious indicator detected.")
             score += weight
-            reasons.append(f"{signal}: +{weight} - {reason}")
+            reasons.append(f"{signal}: +{weight}")
+            scoring_details[signal] = {"triggered": True, "weight": weight, "reason": reason}
 
-            scoring_details[signal] = {
-                "triggered": True,
-                "weight": weight,
-                "reason": reason,
-            }
+    return min(score, 250), reasons, scoring_details
 
-    score = min(score, 250)
+def _fallback_score_from_domain(url: str) -> tuple[int, list[str], dict]:
+    """Provides high-level risk assessment if HTML cannot be fetched[cite: 1]."""
+    domain_raw = _extract_domain(url)
+    score = 0
+    reasons = ["Unable to fetch HTML. Analyzing domain structure."]
+    
+    if "-" in domain_raw: score += 50
+    if any(domain_raw.endswith(tld) for tld in [".xyz", ".top", ".click"]): score += 100
+    
+    return min(score, 250), reasons, {"suspicious_domain": True}
 
-    return score, reasons, scoring_details
+def _get_page_html(url: str, timeout: int = 10) -> Optional[str]:
+    """Fetches HTML content while mimicking a standard web browser[cite: 1]."""
+    try:
+        headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"}
+        response = requests.get(url, timeout=timeout, allow_redirects=True, headers=headers)
+        response.raise_for_status()
+        return response.text
+    except Exception as e:
+        print(f"[ERROR] Fetch failed: {e}")
+        return None
 
+# --- MAIN ANALYSIS ENGINE ---
 
-def _empty_indicator_result() -> Dict[str, bool]:
-    return {
-        "login_form_present": False,
-        "external_form_submission": False,
-        "credential_harvesting_language": False,
-        "brand_impersonation": False,
-        "urgent_threatening_language": False,
-        "financial_request_language": False,
-        "unexpected_login_prompt": False,
-        "javascript_obfuscation": False,
-        "hidden_iframe": False,
-        "external_resource_loading": False,
-        "excessive_permission_requests": False,
-        "favicon_loaded_from_external_domain": False,
-        "no_contact_or_privacy_policy": False,
-    }
-
-
-def analyze_html_content(
-    url: str,
-    html: Optional[str] = None,
-    fetch_page: bool = False,
-) -> Dict[str, object]:
+def analyze_html_content(url: str, html: Optional[str] = None, fetch_page: bool = False) -> Dict[str, object]:
+    """Main entry point for auditing HTML for phishing indicators[cite: 1, 2]."""
+    
+    # 1. Early exit if the domain is whitelisted to prevent false positives[cite: 2]
+    if _is_whitelisted(url):
+        return {
+            "score": 0,
+            "reasons": ["Site is on the trusted whitelist."],
+            "html_analysis_success": True,
+            "whitelisted": True
+        }
 
     if html is None and fetch_page:
         html = _get_page_html(url)
 
     if not html:
-        indicators = _empty_indicator_result()
-
-        return {
-            "score": 50,
-            "reasons": [
-                "Unable to fetch HTML. The site may be blocking automated analysis or unavailable."
-            ],
-            "scoring_details": {
-                "html_fetch_failed": {
-                    "triggered": True,
-                    "weight": 50,
-                    "reason": "HTML could not be fetched, so a small suspicious baseline score was applied.",
-                }
-            },
-            **indicators,
-            "inconsistent_branding_or_design": False,
-            "html_analysis_success": False,
-            "html_error": "No HTML provided or fetched.",
-        }
+        score, reasons, details = _fallback_score_from_domain(url)
+        return {"score": score, "reasons": reasons, "scoring_details": details, "html_analysis_success": False}
 
     soup = BeautifulSoup(html, "html.parser")
     page_text = soup.get_text(" ", strip=True).lower()
     page_domain = _extract_domain(url)
+    base_page_domain = _get_base_domain(url)
 
+    indicators = _empty_indicator_result()
+
+    # 2. Form Audit: Checks for password inputs and external data submission[cite: 1, 2]
     forms = soup.find_all("form")
-    scripts = soup.find_all("script")
-    iframes = soup.find_all("iframe")
-    links = soup.find_all("link")
-    imgs = soup.find_all("img")
-
-    login_form_present = False
-    external_form_submission = False
-    hidden_iframe = False
-    javascript_obfuscation = False
-    external_resource_loading = False
-    favicon_loaded_from_external_domain = False
-
     for form in forms:
         form_html = str(form).lower()
-
-        if "password" in form_html or "login" in form_html or "signin" in form_html:
-            login_form_present = True
+        if "password" in form_html:
+            indicators["login_form_present"] = True
 
         action = form.get("action")
         if action:
-            target = urljoin(url, action)
+            target_url = urljoin(url, action)
+            target_base = _get_base_domain(target_url)
+            # Only flag as 'external' if the base domain doesn't match and isn't whitelisted[cite: 2]
+            if target_base != base_page_domain and target_base not in WHITELISTED_DOMAINS:
+                indicators["external_form_submission"] = True
 
-            if _extract_domain(target) != page_domain:
-                external_form_submission = True
+    # 3. Brand Audit: Detects brand names mentioned on mismatching domains[cite: 2]
+    found_brand = any(brand in page_text for brand in KNOWN_BRANDS)
+    brand_in_url = any(brand in page_domain for brand in KNOWN_BRANDS)
+    if found_brand and not brand_in_url:
+        indicators["brand_impersonation"] = True
 
-    for iframe in iframes:
-        style = (iframe.get("style") or "").lower().replace(" ", "")
-        width = (iframe.get("width") or "").strip()
-        height = (iframe.get("height") or "").strip()
+    # 4. Language Audit: Scans for urgency or credential-harvesting terms[cite: 1]
+    indicators["credential_harvesting_language"] = any(kw in page_text for kw in CREDENTIAL_KEYWORDS)
+    indicators["urgent_threatening_language"] = "account will be locked" in page_text or "act now" in page_text
 
-        if "display:none" in style or width == "0" or height == "0":
-            hidden_iframe = True
+    # 5. Script Audit: Detects obfuscation patterns like 'eval' or 'unescape'[cite: 1]
+    for script in soup.find_all("script"):
+        if re.search(r"(eval\(|fromcharcode|unescape\()", script.get_text(), re.I):
+            indicators["javascript_obfuscation"] = True
 
-        src = iframe.get("src")
-        if src:
-            target = urljoin(url, src)
-
-            if _extract_domain(target) != page_domain:
-                external_resource_loading = True
-
-    for script in scripts:
-        script_text = script.get_text(" ", strip=True)
-
-        if len(script_text) > 300 and re.search(
-            r"(eval\(|fromcharcode|atob\(|unescape\()",
-            script_text,
-            re.IGNORECASE,
-        ):
-            javascript_obfuscation = True
-
-        src = script.get("src")
-        if src:
-            target = urljoin(url, src)
-
-            if _extract_domain(target) != page_domain:
-                external_resource_loading = True
-
-    for link in links:
-        href = link.get("href")
-        rel = " ".join(link.get("rel", [])).lower()
-
-        if href:
-            target = urljoin(url, href)
-
-            if _extract_domain(target) != page_domain:
-                external_resource_loading = True
-
-                if "icon" in rel:
-                    favicon_loaded_from_external_domain = True
-
-    for img in imgs:
-        src = img.get("src")
-
-        if src:
-            target = urljoin(url, src)
-
-            if _extract_domain(target) != page_domain:
-                external_resource_loading = True
-
-    credential_harvesting_language = any(
-        keyword in page_text for keyword in CREDENTIAL_KEYWORDS
-    )
-
-    urgent_threatening_language = any(
-        keyword in page_text for keyword in URGENT_KEYWORDS
-    )
-
-    financial_request_language = any(
-        keyword in page_text for keyword in FINANCIAL_KEYWORDS
-    )
-
-    brand_impersonation = any(
-        brand in page_text for brand in KNOWN_BRANDS
-    )
-
-    unexpected_login_prompt = login_form_present and (
-        "login" in page_text or "sign in" in page_text
-    )
-
-    permission_keywords = [
-        "notifications",
-        "clipboard",
-        "location",
-        "camera",
-        "microphone",
-    ]
-
-    excessive_permission_requests = sum(
-        1 for keyword in permission_keywords if keyword in page_text
-    ) >= 2
-
-    no_contact_or_privacy_policy = (
-        "privacy policy" not in page_text
-        and "contact us" not in page_text
-    )
-
-    indicators = {
-        "login_form_present": login_form_present,
-        "external_form_submission": external_form_submission,
-        "credential_harvesting_language": credential_harvesting_language,
-        "brand_impersonation": brand_impersonation,
-        "urgent_threatening_language": urgent_threatening_language,
-        "financial_request_language": financial_request_language,
-        "unexpected_login_prompt": unexpected_login_prompt,
-        "javascript_obfuscation": javascript_obfuscation,
-        "hidden_iframe": hidden_iframe,
-        "external_resource_loading": external_resource_loading,
-        "excessive_permission_requests": excessive_permission_requests,
-        "favicon_loaded_from_external_domain": favicon_loaded_from_external_domain,
-        "no_contact_or_privacy_policy": no_contact_or_privacy_policy,
-    }
-
-    score, reasons, scoring_details = _calculate_html_score(indicators)
+    # Finalize scoring and reasoning[cite: 1]
+    score, reasons, details = _calculate_html_score(indicators)
 
     return {
         "score": score,
         "reasons": reasons,
-        "scoring_details": scoring_details,
+        "scoring_details": details,
         **indicators,
-        "inconsistent_branding_or_design": False,
-        "html_analysis_success": True,
-        "html_error": None,
+        "html_analysis_success": True
     }
-
-
-if __name__ == "__main__":
-    sample_html = """
-    <html>
-      <head>
-        <title>Verify Your Account</title>
-        <link rel="icon" href="https://evil-login.xyz/favicon.ico">
-      </head>
-      <body>
-        <h1>Microsoft Security Alert</h1>
-        <p>Your account will be locked. Act now.</p>
-        <form action="https://evil-login.xyz/post">
-          <input type="text" name="email">
-          <input type="password" name="password">
-        </form>
-        <iframe src="https://bad-site.xyz" style="display:none"></iframe>
-      </body>
-    </html>
-    """
-
-    result = analyze_html_content("https://example.com", html=sample_html)
-    print(result)
