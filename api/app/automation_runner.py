@@ -33,6 +33,12 @@ KEYWORDS = [
     "billing", "alert", "confirm"
 ]
 
+BRANDS = [
+    "google", "microsoft", "paypal", "apple", "amazon",
+    "facebook", "instagram", "netflix", "linkedin", "gmail",
+    "chase", "bankofamerica", "outlook", "office365"
+]
+
 
 # ----------------------------------------------------
 # Logging
@@ -77,12 +83,29 @@ def generate_batch():
     domains = []
 
     for _ in range(BATCH_SIZE):
-        if random.random() < 0.7:
+        roll = random.random()
+        if roll < 0.6:
             domains.append(generate_random_domain())
-        else:
+        elif roll < 0.85:
             domains.append(generate_keyword_domain())
+        else:
+            domains.append(generate_brand_domain())
 
     return domains
+
+def generate_brand_domain():
+    brand = random.choice(BRANDS)
+    keyword = random.choice(KEYWORDS)
+
+    pattern = random.choice([
+        f"{brand}-{keyword}",
+        f"{keyword}-{brand}",
+        f"{brand}{random.randint(1,999)}",
+        f"{brand}-{random_name(3,5)}",
+        f"{brand}{random.choice(['login', 'secure', 'verify'])}"
+    ])
+
+    return pattern + random.choice(TLDs)
 
 
 # ----------------------------------------------------
