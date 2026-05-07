@@ -3,11 +3,13 @@ const domainInput = document.getElementById("domainInput");
 const resultDiv = document.getElementById("result");
 const loadSummaryBtn = document.getElementById("loadSummaryBtn");
 const summaryResultDiv = document.getElementById("summaryResult");
+const loadIndicatorReportBtn = document.getElementById("loadIndicatorReportBtn");
 
 const API_BASE = "http://127.0.0.1:8000";
 
 analyzeBtn.addEventListener("click", analyzeDomain);
 loadSummaryBtn.addEventListener("click", loadResultsSummary);
+loadIndicatorReportBtn.addEventListener("click", loadIndicatorReport);
 
 domainInput.addEventListener("keypress", function (event) {
   if (event.key === "Enter") {
@@ -177,4 +179,85 @@ function getBadgeClass(score) {
   if (score >= 500) return "badge-likely";
   if (score >= 250) return "badge-medium";
   return "badge-low";
+}
+
+async function loadIndicatorReport() {
+  const container = document.getElementById("indicatorReport");
+
+  container.innerHTML = `
+    <div class="empty-state">
+      <p>Loading indicator report...</p>
+      <span>Analyzing indicator trends.</span>
+    </div>
+  `;
+
+  try {
+    const response = await fetch(`${API_BASE}/reports/indicators`);
+
+    if (!response.ok) {
+      throw new Error(`Server responded with ${response.status}`);
+    }
+
+    const report = await response.json();
+
+    if (!report.length) {
+      container.innerHTML = "<p>No indicator data found.</p>";
+      return;
+    }
+
+    container.innerHTML = "";
+
+    report.forEach(indicator => {
+      const section = document.createElement("div");
+      section.className = "indicator-card";
+
+      section.innerHTML = `
+        <button class="indicator-header">
+          <span>${indicator.indicator_name}</span>
+          <span>${indicator.hit_count} hits</span>
+        </button>
+
+        <div class="indicator-details">
+          <table>
+            <thead>
+              <tr>
+                <th>Domain</th>
+                <th>Details</th>
+                <th>Score</th>
+                <th>Risk</th>
+                <th>Time</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${indicator.top_domains.map(d => `
+                <tr>
+                  <td>${d.domain}</td>
+                  <td>${d.details}</td>
+                  <td>${d.risk_score}</td>
+                  <td>${d.risk_level}</td>
+                  <td>${d.scanned_at}</td>
+                </tr>
+              `).join("")}
+            </tbody>
+          </table>
+        </div>
+      `;
+
+      const header = section.querySelector(".indicator-header");
+      const details = section.querySelector(".indicator-details");
+
+      details.style.display = "none";
+
+      header.addEventListener("click", () => {
+        details.style.display =
+          details.style.display === "none" ? "block" : "none";
+      });
+
+      container.appendChild(section);
+    });
+
+  } catch (error) {
+    container.innerHTML = `<p class="error-message">Error: ${error.message}</p>`;
+    console.error(error);
+  }
 }

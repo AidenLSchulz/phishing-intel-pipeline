@@ -285,6 +285,77 @@ button:hover {
   font-size: 14px;
 }
 
+.indicator-card {
+  border: 1px solid #d8deea;
+  border-radius: 14px;
+  margin-bottom: 14px;
+  overflow: hidden;
+  background: #ffffff;
+  box-shadow: 0 8px 20px rgba(15, 23, 42, 0.06);
+}
+
+.indicator-header {
+  width: 100%;
+  border: none;
+  padding: 16px 18px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  cursor: pointer;
+  font-weight: 700;
+  font-size: 1rem;
+  color: #111827;
+  background: linear-gradient(135deg, #ffffff, #f4f7fb);
+}
+
+.indicator-header:hover {
+  background: linear-gradient(135deg, #eef2ff, #f8fafc);
+}
+
+.indicator-header span:last-child {
+  background: #eef2ff;
+  color: #3154d4;
+  padding: 5px 10px;
+  border-radius: 999px;
+  font-size: 0.85rem;
+}
+
+.indicator-details {
+  padding: 14px;
+  background: #f9fafb;
+  border-top: 1px solid #e5e7eb;
+  overflow-x: auto;
+}
+
+.indicator-details table {
+  width: 100%;
+  border-collapse: collapse;
+  background: #ffffff;
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.indicator-details th {
+  background: #f1f5f9;
+  color: #334155;
+  text-align: left;
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 10px;
+}
+
+.indicator-details td {
+  padding: 10px;
+  border-top: 1px solid #e5e7eb;
+  color: #1f2937;
+  font-size: 0.9rem;
+}
+
+.indicator-details tr:hover {
+  background: #f8fafc;
+}
+
 @media (max-width: 900px) {
   .app-shell {
     grid-template-columns: 1fr;

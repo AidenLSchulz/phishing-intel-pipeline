@@ -19,6 +19,7 @@ from datetime import datetime
 
 import sqlite3
 import os
+import json
 
 # Helper modules
 from .result_repository import save_result, domain_exists, normalize_domain, initialize_database
@@ -105,6 +106,132 @@ def results_summary():
         "latest_scans": latest_scans
     }
 
+@app.get("/reports/indicators")
+def get_indicator_report():
+    db_file = os.path.join(os.path.dirname(__file__), "analysis_results.db")
+
+    if not os.path.exists(db_file):
+        return []
+
+    with sqlite3.connect(db_file) as conn:
+        cursor = conn.cursor()
+
+        cursor.execute("""
+            SELECT domain, final_score, risk_level, timestamp, raw_results
+            FROM analysis_results
+            ORDER BY id DESC
+            LIMIT 10000
+        """)
+
+        rows = cursor.fetchall()
+
+    indicator_report = {}
+
+    for row in rows:
+        domain = row[0]
+        risk_score = row[1]
+        risk_level = row[2]
+        scanned_at = row[3]
+        saved_raw_results = row[4]
+
+        if not saved_raw_results:
+            continue
+
+        try:
+            raw_results = json.loads(saved_raw_results)
+        except Exception:
+            continue
+
+        database_result = raw_results.get("database_check", {})
+        ssl_result = raw_results.get("ssl_check", {})
+        whois_result = raw_results.get("whois_check", {})
+        html_result = raw_results.get("html_analyzer", {})
+
+        indicators = collect_hit_indicators(
+            domain,
+            database_result,
+            ssl_result,
+            whois_result,
+            html_result
+        )
+
+        for indicator in indicators:
+            indicator_name = indicator.get("name", "Unknown Indicator")
+            indicator_details = indicator.get("details", "No details provided")
+
+            if indicator_name not in indicator_report:
+                indicator_report[indicator_name] = {
+                    "indicator_name": indicator_name,
+                    "hit_count": 0,
+                    "top_domains": []
+                }
+
+            indicator_report[indicator_name]["hit_count"] += 1
+
+            indicator_report[indicator_name]["top_domains"].append({
+                "domain": domain,
+                "details": indicator_details,
+                "risk_score": risk_score,
+                "risk_level": risk_level,
+                "scanned_at": scanned_at
+            })
+
+    for indicator in indicator_report.values():
+        indicator["top_domains"] = sorted(
+            indicator["top_domains"],
+            key=lambda item: item["risk_score"],
+            reverse=True
+        )[:15]
+
+    return sorted(
+        indicator_report.values(),
+        key=lambda item: item["hit_count"],
+        reverse=True
+    )
+
+
+def detect_indicators_from_domain(domain):
+    indicators = []
+
+    suspicious_keywords = [
+        "login", "secure", "update", "verify", "account",
+        "bank", "signin", "auth", "portal", "support",
+        "billing", "alert", "confirm"
+    ]
+
+    for keyword in suspicious_keywords:
+        if keyword in domain.lower():
+            indicators.append({
+                "name": "Suspicious Keyword",
+                "details": keyword
+            })
+
+    if len(domain) > 25:
+        indicators.append({
+            "name": "Long Domain",
+            "details": "Domain length is greater than 25 characters"
+        })
+
+    if domain.count("-") >= 2:
+        indicators.append({
+            "name": "Multiple Hyphens",
+            "details": "Domain contains multiple hyphens"
+        })
+
+    if any(char.isdigit() for char in domain):
+        indicators.append({
+            "name": "Contains Numbers",
+            "details": "Domain contains numeric characters"
+        })
+
+    if domain.endswith(".info") or domain.endswith(".biz"):
+        indicators.append({
+            "name": "Suspicious TLD",
+            "details": "Domain uses a higher-risk TLD"
+        })
+
+    return indicators
+
 
 # Final scoring model:
 # 0–249     Safe
@@ -128,6 +255,73 @@ def get_helper_score(helper_result: dict) -> int:
         return int(helper_result.get("score", 0))
     except Exception:
         return 0
+    
+
+def collect_hit_indicators(domain, database_result, ssl_result, whois_result, html_result):
+    indicators = []
+
+    # Domain pattern indicators
+    indicators.extend(detect_indicators_from_domain(domain))
+
+    # Known phishing database
+    if database_result.get("score", 0) > 0:
+        indicators.append({
+            "name": "Known Phishing Database",
+            "details": "; ".join(database_result.get("details", ["Known phishing database returned a score"]))
+        })
+
+    # SSL/TLS check
+    if ssl_result.get("score", 0) > 0:
+        ssl_details = ssl_result.get("reason") or ssl_result.get("details") or ["SSL/TLS check returned a score"]
+
+        indicators.append({
+            "name": "SSL/TLS Check",
+            "details": "; ".join(ssl_details) if isinstance(ssl_details, list) else str(ssl_details)
+        })
+
+    # WHOIS check
+    if whois_result.get("score", 0) > 0:
+        whois_details = []
+
+        if whois_result.get("domain_age_days") is not None:
+            whois_details.append(f"Domain age: {whois_result.get('domain_age_days')} days")
+
+        if whois_result.get("domain_age_risk"):
+            whois_details.append(f"Domain age risk: {whois_result.get('domain_age_risk')}")
+
+        if whois_result.get("registrar_name"):
+            whois_details.append(f"Registrar: {whois_result.get('registrar_name')}")
+
+        if whois_result.get("whois_privacy_enabled") is True:
+            whois_details.append("WHOIS privacy is enabled")
+
+        if whois_result.get("whois_error"):
+            whois_details.append(f"WHOIS error: {whois_result.get('whois_error')}")
+
+        indicators.append({
+            "name": "WHOIS Check",
+            "details": "; ".join(whois_details) if whois_details else "WHOIS check returned a score"
+        })
+
+    # HTML analyzer
+    if html_result.get("score", 0) > 0:
+        html_reasons = html_result.get("reasons", [])
+
+        indicators.append({
+            "name": "HTML Analyzer",
+            "details": "; ".join(html_reasons) if html_reasons else "HTML analyzer returned a score"
+        })
+
+        scoring_details = html_result.get("scoring_details", {})
+
+        for detail_name, detail_value in scoring_details.items():
+            if isinstance(detail_value, dict) and detail_value.get("triggered") is True:
+                indicators.append({
+                    "name": f"HTML Indicator: {detail_name}",
+                    "details": detail_value.get("reason", "HTML scoring detail was triggered")
+                })
+
+    return indicators
 
 
 @app.post("/analyze-domain")
@@ -230,7 +424,13 @@ def analyze_domain(request: DomainRequest):
             "domain": domain,
             "final_score": total_score,
             "risk_level": risk_level,
-            "indicators": [],  # can improve later
+            "indicators": collect_hit_indicators(
+                domain,
+                database_result,
+                ssl_result,
+                whois_result,
+                html_result
+            ),
             "raw_results": {
                 "database_check": database_result,
                 "ssl_check": ssl_result,
