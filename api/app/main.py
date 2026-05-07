@@ -105,6 +105,109 @@ def results_summary():
         "latest_scans": latest_scans
     }
 
+@app.get("/reports/indicators")
+def get_indicator_report():
+    db_file = os.path.join(os.path.dirname(__file__), "analysis_results.db")
+    conn = sqlite3.connect(db_file)
+    cursor = conn.cursor()
+
+    cursor.execute("""
+    SELECT domain, final_score, risk_level, timestamp
+    FROM analysis_results
+    ORDER BY id DESC
+    LIMIT 10000
+    """)
+
+    rows = cursor.fetchall()
+    conn.close()
+
+    indicator_report = {}
+
+    for row in rows:
+        domain = row[0]
+        risk_score = row[1]  # this is actually final_score
+        risk_level = row[2]
+        scanned_at = row[3]  # this is actually timestamp
+
+        indicators = detect_indicators_from_domain(domain)
+
+        for indicator in indicators:
+            indicator_name = indicator["name"]
+            indicator_details = indicator["details"]
+
+            if indicator_name not in indicator_report:
+                indicator_report[indicator_name] = {
+                    "indicator_name": indicator_name,
+                    "hit_count": 0,
+                    "top_domains": []
+                }
+
+            indicator_report[indicator_name]["hit_count"] += 1
+
+            indicator_report[indicator_name]["top_domains"].append({
+                "domain": domain,
+                "details": indicator_details,
+                "risk_score": risk_score,
+                "risk_level": risk_level,
+                "scanned_at": scanned_at
+            })
+
+    for indicator in indicator_report.values():
+        indicator["top_domains"] = sorted(
+            indicator["top_domains"],
+            key=lambda item: item["risk_score"],
+            reverse=True
+        )[:15]
+
+    return sorted(
+        indicator_report.values(),
+        key=lambda item: item["hit_count"],
+        reverse=True
+    )
+
+
+def detect_indicators_from_domain(domain):
+    indicators = []
+
+    suspicious_keywords = [
+        "login", "secure", "update", "verify", "account",
+        "bank", "signin", "auth", "portal", "support",
+        "billing", "alert", "confirm"
+    ]
+
+    for keyword in suspicious_keywords:
+        if keyword in domain.lower():
+            indicators.append({
+                "name": "Suspicious Keyword",
+                "details": keyword
+            })
+
+    if len(domain) > 25:
+        indicators.append({
+            "name": "Long Domain",
+            "details": "Domain length is greater than 25 characters"
+        })
+
+    if domain.count("-") >= 2:
+        indicators.append({
+            "name": "Multiple Hyphens",
+            "details": "Domain contains multiple hyphens"
+        })
+
+    if any(char.isdigit() for char in domain):
+        indicators.append({
+            "name": "Contains Numbers",
+            "details": "Domain contains numeric characters"
+        })
+
+    if domain.endswith(".info") or domain.endswith(".biz"):
+        indicators.append({
+            "name": "Suspicious TLD",
+            "details": "Domain uses a higher-risk TLD"
+        })
+
+    return indicators
+
 
 # Final scoring model:
 # 0–249     Safe
